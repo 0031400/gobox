@@ -44,7 +44,10 @@ func (v *VlessOutbound) Connect(session OutSession) (connections.Connection, err
 		reqData = append(reqData, []byte(domain)...)
 	}
 	reqData = append(reqData, session.FirstData...)
-	conn.Write(reqData)
+	err = conn.Write(reqData)
+	if err != nil {
+		return nil, err
+	}
 	res, err := conn.ReadExactly(2)
 	if err != nil {
 		return nil, err
