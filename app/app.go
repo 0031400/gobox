@@ -19,6 +19,11 @@ func (a *App) Run() {
 		return
 	}
 	builder := NewBuilder(*appConfig)
+	err = builder.LoadRuleSet()
+	if err != nil {
+		log.Println(err)
+		return
+	}
 	dnsCenter, err := builder.BuildDnsCenter()
 	if err != nil {
 		log.Println(err)

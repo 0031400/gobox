@@ -70,7 +70,7 @@ type DnsServerConfig struct {
 	Host       string `json:"host"`
 	Path       string `json:"path"`
 	ServerName string `json:"server_name"`
-	Insecure   string `json:"insecure"`
+	Insecure   bool   `json:"insecure"`
 }
 type DnsRuleConfig struct {
 	Domain        []string `json:"domain"`

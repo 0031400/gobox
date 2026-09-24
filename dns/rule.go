@@ -15,6 +15,9 @@ type DnsRule struct {
 	Server        string
 }
 
+func NewSubDnsRule(domain []string, domainSuffix []string, domainKeyword []string, domainRegex []*regexp.Regexp) *DnsRule {
+	return &DnsRule{domain: domain, domainSuffix: domainSuffix, domainKeyword: domainKeyword, domainRegex: domainRegex, ruleSet: []DnsRule{}, Server: ""}
+}
 func NewDnsRule(domain []string, domainSuffix []string, domainKeyword []string, domainRegex []string, ruleSet []DnsRule, server string) *DnsRule {
 	var res []*regexp.Regexp
 	for _, item := range domainRegex {

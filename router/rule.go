@@ -9,19 +9,19 @@ import (
 )
 
 type RouteRule struct {
-	domain        []string
-	domainSuffix  []string
-	domainKeyword []string
-	domainRegex   []regexp.Regexp
+	Domain        []string
+	DomainSuffix  []string
+	DomainKeyword []string
+	DomainRegex   []*regexp.Regexp
 	ipCidr        []net.IPNet
 	ruleSet       []RouteRule
 	Outbound      string
 }
 
 func NewRouteRule(domain []string, domainSuffix []string, domainKeyword []string, domainRegex []string, ruleSet []RouteRule, ipCidr []string, outbound string) (*RouteRule, error) {
-	var res []regexp.Regexp
+	var res []*regexp.Regexp
 	for _, item := range domainRegex {
-		res = append(res, *regexp.MustCompile(item))
+		res = append(res, regexp.MustCompile(item))
 	}
 	var cidrs []net.IPNet
 	for _, item := range ipCidr {
@@ -31,7 +31,7 @@ func NewRouteRule(domain []string, domainSuffix []string, domainKeyword []string
 		}
 		cidrs = append(cidrs, *value)
 	}
-	return &RouteRule{domain: domain, domainSuffix: domainSuffix, domainKeyword: domainKeyword, domainRegex: res, ruleSet: ruleSet, Outbound: outbound, ipCidr: cidrs}, nil
+	return &RouteRule{Domain: domain, DomainSuffix: domainSuffix, DomainKeyword: domainKeyword, DomainRegex: res, ruleSet: ruleSet, Outbound: outbound, ipCidr: cidrs}, nil
 }
 
 func (r *RouteRule) Match(addr common.TargetAddr) bool {
@@ -54,10 +54,10 @@ func (r *RouteRule) matchIp(ip net.IP) bool {
 	return false
 }
 func (r *RouteRule) matchDomain(domain string) bool {
-	if slices.Contains(r.domain, domain) {
+	if slices.Contains(r.Domain, domain) {
 		return true
 	}
-	for _, item := range r.domainSuffix {
+	for _, item := range r.DomainSuffix {
 		if domain == item {
 			return true
 		}
@@ -71,12 +71,12 @@ func (r *RouteRule) matchDomain(domain string) bool {
 			}
 		}
 	}
-	for _, item := range r.domain {
+	for _, item := range r.Domain {
 		if strings.Contains(domain, item) {
 			return true
 		}
 	}
-	for _, item := range r.domainRegex {
+	for _, item := range r.DomainRegex {
 		if item.MatchString(domain) {
 			return true
 		}

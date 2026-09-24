@@ -94,9 +94,10 @@ func (d *DnsCenter) Relay(data []byte) ([]byte, error) {
 	if domain != "" {
 		log.Printf("[dns] relay: <- %s %d", domain, msg.Question[0].Qtype)
 	}
-	server, err := d.findServer(domain)
-	if err != nil {
-		return nil, err
+	serverTag := d.findServerTag(domain)
+	server, ok := d.servers[serverTag]
+	if !ok {
+		return nil, errors.New("dns server not found")
 	}
 	data, err = server.Relay(data)
 	err = msg.Unpack(data)
@@ -115,7 +116,7 @@ func (d *DnsCenter) Relay(data []byte) ([]byte, error) {
 			res = append(res, a.Target)
 		}
 	}
-	log.Printf("[dns] relay: %s -> %s", domain, strings.Join(res, ","))
+	log.Printf("[dns] relay: %s -> %s -> %s", domain, serverTag, strings.Join(res, ","))
 	return data, nil
 }
 func (d *DnsCenter) Resolve(domain string) ([]net.IP, error) {
@@ -159,9 +160,10 @@ func (d *DnsCenter) resolveOne(domain string, v6 bool) ([]net.IP, error) {
 	if err != nil {
 		return nil, err
 	}
-	server, err := d.findServer(domain)
-	if err != nil {
-		return nil, err
+	serverTag := d.findServerTag(domain)
+	server, ok := d.servers[serverTag]
+	if !ok {
+		return nil, errors.New("dns server not found")
 	}
 	data, err = server.Relay(data)
 	if err != nil {
@@ -182,7 +184,7 @@ func (d *DnsCenter) resolveOne(domain string, v6 bool) ([]net.IP, error) {
 	}
 	return ips, err
 }
-func (d *DnsCenter) findServer(domain string) (servers.DnsServer, error) {
+func (d *DnsCenter) findServerTag(domain string) string {
 	serverTag := d.final
 	for _, rule := range d.rules {
 		if rule.Match(domain) {
@@ -190,9 +192,5 @@ func (d *DnsCenter) findServer(domain string) (servers.DnsServer, error) {
 			break
 		}
 	}
-	server, ok := d.servers[serverTag]
-	if !ok {
-		return nil, errors.New("dns server not found")
-	}
-	return server, nil
+	return serverTag
 }
