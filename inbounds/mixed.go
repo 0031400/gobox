@@ -1,13 +1,17 @@
 package inbounds
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"gobox/common"
 	"gobox/connections"
 	"gobox/listeners"
 	"log"
+	"net"
 	"slices"
+	"strconv"
+	"strings"
 )
 
 type MixedInbound struct {
@@ -39,16 +43,63 @@ func (m *MixedInbound) Start() error {
 func (m *MixedInbound) Accept() InSession {
 	return <-m.channel
 }
-func (m *MixedInbound) handle(conn connections.Connection) {
-	ver, err := conn.ReadExactly(1)
+func (m *MixedInbound) handleHttpConnect(conn connections.Connection, headerBody []byte, method string, path string, version string) {
+	var session InSession
+	session.FirstData = headerBody
+	host, portStr, err := net.SplitHostPort(path)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	if ver[0] != 5 {
-		fmt.Println("version error")
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		log.Println(err)
 		return
 	}
+	session.Target.Port = uint16(port)
+	ip := net.ParseIP(host)
+	if ip == nil {
+		session.Target.IsIp = false
+	} else {
+		session.Target.IsIp = false
+		session.Target.Ip = ip
+	}
+	session.Conn = conn
+	m.channel <- session
+}
+func (m *MixedInbound) handleHttp(conn connections.Connection, firstByte byte) {
+	buffer := []byte{firstByte}
+	for !bytes.Contains(buffer, []byte("\r\n")) {
+		data, err := conn.Read(4096)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		buffer = append(buffer, data...)
+	}
+
+	idx := bytes.Index(buffer, []byte("\r\n"))
+	line := buffer[:idx]
+	p1 := bytes.IndexByte(line, ' ')
+	if p1 < 0 {
+		log.Println("not found http method")
+		return
+	}
+	method := string(line[:p1])
+	p2 := bytes.IndexByte(line[p1+1:], ' ')
+	if p2 < 0 {
+		log.Println("not found http url")
+		return
+	}
+	p2 += p1 + 1
+	url := string(line[p1+1 : p2])
+	version := string(line[p2+1:])
+	if strings.ToLower(method) == "connect" {
+		m.handleHttpConnect(conn, buffer[idx+2:], method, url, version)
+	}
+
+}
+func (m *MixedInbound) handleSocks5(conn connections.Connection) {
 	nMethod, err := conn.ReadExactly(1)
 	if err != nil {
 		log.Println(err)
@@ -67,7 +118,7 @@ func (m *MixedInbound) handle(conn connections.Connection) {
 	if err != nil {
 		return
 	}
-	ver, err = conn.ReadExactly(1)
+	ver, err := conn.ReadExactly(1)
 	if err != nil {
 		return
 	}
@@ -148,4 +199,16 @@ func (m *MixedInbound) handle(conn connections.Connection) {
 	}
 	session.Target = targetAddr
 	m.channel <- session
+}
+func (m *MixedInbound) handle(conn connections.Connection) {
+	ver, err := conn.ReadExactly(1)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	if ver[0] == 5 {
+		m.handleSocks5(conn)
+	} else {
+		m.handleHttp(conn, ver[0])
+	}
 }

@@ -1,14 +1,22 @@
 package app
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"gobox/common"
 	"gobox/config"
 	"gobox/dns"
 	dnsServers "gobox/dns/servers"
+	"gobox/inbounds"
+	"gobox/listeners"
+	"gobox/outbounds"
 	"gobox/router"
+	tlsUtil "gobox/tls_util"
+	"gobox/transports"
 	"net"
 	"os"
+	"strings"
 )
 
 type Builder struct {
@@ -116,4 +124,80 @@ func (b *Builder) BuildRouter() (*router.Router, error) {
 		rules = append(rules, *routeRule)
 	}
 	return router.NewRouter(b.config.Router.Final, rules), nil
+}
+
+func (b *Builder) buildListener(cfg config.InboundConfig) (listeners.Listener, error) {
+	addr := common.ListenAddr{Ip: net.ParseIP(cfg.Listen), Port: cfg.ListenPort}
+	tlsCfg := tlsUtil.TlsServerConfig{Enabled: cfg.TLs.Enabled, CertificatePath: cfg.TLs.CertificatePath, KeyPath: cfg.TLs.KeyPath}
+	if cfg.Transport.Type == "tcp" || cfg.Transport.Type == "" {
+		return listeners.NewTcpListener(addr, tlsCfg), nil
+	} else if cfg.Transport.Type == "ws" {
+		return listeners.NewWsListener(addr, cfg.Transport.Path, tlsCfg), nil
+	} else {
+		return nil, errors.New("unsupport listener type")
+	}
+
+}
+func (b *Builder) BuildTransport(cfg config.OutboudConfig) (transports.Transport, error) {
+	ip := net.ParseIP(cfg.Server)
+	var addr common.TargetAddr
+	addr.Port = cfg.ServerPort
+	if ip == nil {
+		addr.Domain = cfg.Server
+		addr.IsIp = false
+	} else {
+		addr.Ip = ip
+		addr.IsIp = true
+	}
+	tlsCfg := tlsUtil.TlsClientConfig{Enabled: cfg.TLs.Enabled, ServerName: cfg.TLs.ServerName, Insecure: cfg.TLs.Insecure}
+	switch cfg.Transport.Type {
+	case "tcp", "":
+		return transports.NewTcpTransport(addr, tlsCfg), nil
+	case "ws":
+		return transports.NewWsTransport(addr, cfg.Transport.Host, cfg.Transport.Path, tlsCfg), nil
+	default:
+		return nil, errors.New("unsupport transport type")
+	}
+}
+func (b *Builder) BuildOutbounds() (map[string]outbounds.Outbound, error) {
+	items := make(map[string]outbounds.Outbound)
+	for _, item := range b.config.Outbounds {
+		transport, err := b.BuildTransport(item)
+		if err != nil {
+			return nil, err
+		}
+		switch item.Type {
+		case "vless":
+			var uuid [16]byte
+			uuidStr := strings.ReplaceAll(item.User.Uuid, "-", "")
+			if len(uuidStr) != 32 {
+				return nil, errors.New("uuid len error")
+			}
+			_, err = hex.Decode(uuid[:], []byte(uuidStr))
+			if err != nil {
+				return nil, err
+			}
+			items[item.Tag] = outbounds.NewVlessOutbound(uuid, transport)
+		case "direct":
+
+		default:
+			return nil, errors.New("unsupport inbound type")
+		}
+	}
+	return items, nil
+}
+func (b *Builder) BuildInbounds() (map[string]inbounds.Inbound, error) {
+	items := make(map[string]inbounds.Inbound)
+	for _, item := range b.config.Inbounds {
+		if item.Type == "mixed" {
+			listener, err := b.buildListener(item)
+			if err != nil {
+				return nil, err
+			}
+			items[item.Tag] = inbounds.NewMixedInbound(listener)
+		} else {
+			return nil, errors.New("unsupport inbound type")
+		}
+	}
+	return items, nil
 }

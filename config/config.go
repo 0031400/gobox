@@ -33,6 +33,7 @@ type InboundConfig struct {
 	ListenPort uint16          `json:"listen_port"`
 	Users      []UserConfig    `json:"users"`
 	TLs        TlsServerConfig `json:"tls"`
+	Transport  TransportConfig `json:"transport"`
 }
 type OutboudConfig struct {
 	Tag        string          `json:"tag"`
@@ -41,6 +42,7 @@ type OutboudConfig struct {
 	ServerPort uint16          `json:"server_port"`
 	TLs        TlsClientConfig `json:"tls"`
 	User       UserConfig      `json:"user"`
+	Transport  TransportConfig `json:"transport"`
 }
 type RuleSetConfig struct {
 	Tag    string `json:"tag"`
