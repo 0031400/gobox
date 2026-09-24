@@ -9,6 +9,7 @@ import (
 	"gobox/listeners"
 	"log"
 	"net"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -43,7 +44,24 @@ func (m *MixedInbound) Start() error {
 func (m *MixedInbound) Accept() InSession {
 	return <-m.channel
 }
-func (m *MixedInbound) handleHttpConnect(conn connections.Connection, headerBody []byte, method string, path string, version string) {
+func (m *MixedInbound) handleHttpNotConnect(conn connections.Connection, headerBody []byte, method string, path string, version string) {
+	u, err := url.Parse(path)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	var session InSession
+	port, err := strconv.Atoi(u.Port())
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	session.Target = common.TargetAddrFromHostPort(u.Hostname(), uint16(port))
+	session.FirstData = append(session.FirstData, fmt.Appendf(nil, "%s %s %s\r\n", method, u.RequestURI(), version)...)
+	session.FirstData = append(session.FirstData, headerBody...)
+	m.channel <- session
+}
+func (m *MixedInbound) handleHttpConnect(conn connections.Connection, headerBody []byte, path string) {
 	var session InSession
 	session.FirstData = headerBody
 	host, portStr, err := net.SplitHostPort(path)
@@ -95,9 +113,10 @@ func (m *MixedInbound) handleHttp(conn connections.Connection, firstByte byte) {
 	url := string(line[p1+1 : p2])
 	version := string(line[p2+1:])
 	if strings.ToLower(method) == "connect" {
-		m.handleHttpConnect(conn, buffer[idx+2:], method, url, version)
+		m.handleHttpConnect(conn, buffer[idx+2:], url)
+	} else {
+		m.handleHttpNotConnect(conn, buffer[idx+2:], method, url, version)
 	}
-
 }
 func (m *MixedInbound) handleSocks5(conn connections.Connection) {
 	nMethod, err := conn.ReadExactly(1)
