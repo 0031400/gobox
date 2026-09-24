@@ -2,6 +2,7 @@ package app
 
 import (
 	"gobox/config"
+	"gobox/connections"
 	"gobox/inbounds"
 	"gobox/outbounds"
 	"gobox/router"
@@ -61,7 +62,20 @@ func (a *App) Run() {
 	}
 	select {}
 }
-
+func relay(conn1 connections.Connection, conn2 connections.Connection) {
+	for {
+		data, err := conn1.Read(4096)
+		if err != nil {
+			log.Println(err)
+			break
+		}
+		err = conn2.Write(data)
+		if err != nil {
+			log.Println(err)
+			break
+		}
+	}
+}
 func (a *App) handleInbound(tag string, inbound inbounds.Inbound) {
 	for {
 		session := inbound.Accept()
@@ -80,39 +94,8 @@ func (a *App) handleInbound(tag string, inbound inbounds.Inbound) {
 				log.Println(err)
 				return
 			}
-			finished := make(chan struct{}, 2)
-			go func() {
-				for {
-					data, err := conn1.Read(4096)
-					if err != nil {
-						log.Println(err)
-						break
-					}
-					err = conn2.Write(data)
-					if err != nil {
-						log.Println(err)
-						break
-					}
-				}
-				finished <- struct{}{}
-			}()
-			go func() {
-				for {
-					data, err := conn2.Read(4096)
-					if err != nil {
-						log.Println(err)
-						break
-					}
-					err = conn1.Write(data)
-					if err != nil {
-						log.Println(err)
-						break
-					}
-				}
-				finished <- struct{}{}
-			}()
-			<-finished
-			<-finished
+			go relay(conn1, conn2)
+			go relay(conn2, conn1)
 		}(session)
 	}
 }

@@ -51,19 +51,37 @@ func (m *MixedInbound) handleHttpNotConnect(conn connections.Connection, headerB
 		return
 	}
 	var session InSession
-	port, err := strconv.Atoi(u.Port())
-	if err != nil {
-		log.Println(err)
-		return
+	var port int
+	if u.Port() == "" {
+		port = 80
+	} else {
+		port, err = strconv.Atoi(u.Port())
+		if err != nil {
+			log.Println(err)
+			return
+		}
 	}
 	session.Target = common.TargetAddrFromHostPort(u.Hostname(), uint16(port))
 	session.FirstData = append(session.FirstData, fmt.Appendf(nil, "%s %s %s\r\n", method, u.RequestURI(), version)...)
 	session.FirstData = append(session.FirstData, headerBody...)
+	session.Conn = conn
 	m.channel <- session
 }
 func (m *MixedInbound) handleHttpConnect(conn connections.Connection, headerBody []byte, path string) {
 	var session InSession
-	session.FirstData = headerBody
+	var err error
+	headerBody = append([]byte("\r\n"), headerBody...)
+	found := bytes.Contains(headerBody, []byte("\r\n\r\n"))
+	if !found {
+		log.Println("error http request")
+		return
+	}
+	conn.Write([]byte("HTTP/1.1 200 200 Connection Established\r\n\r\n"))
+	session.FirstData, err = conn.Read(4096)
+	if err != nil {
+		log.Println(err)
+		return
+	}
 	host, portStr, err := net.SplitHostPort(path)
 	if err != nil {
 		log.Println(err)
@@ -74,14 +92,7 @@ func (m *MixedInbound) handleHttpConnect(conn connections.Connection, headerBody
 		log.Println(err)
 		return
 	}
-	session.Target.Port = uint16(port)
-	ip := net.ParseIP(host)
-	if ip == nil {
-		session.Target.IsIp = false
-	} else {
-		session.Target.IsIp = false
-		session.Target.Ip = ip
-	}
+	session.Target = common.TargetAddrFromHostPort(host, uint16(port))
 	session.Conn = conn
 	m.channel <- session
 }
