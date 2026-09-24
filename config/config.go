@@ -2,8 +2,25 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 )
+
+type Strings []string
+
+func (s *Strings) UnmarshalJSON(data []byte) error {
+	var str string
+	if err := json.Unmarshal(data, &str); err == nil {
+		*s = []string{str}
+		return nil
+	}
+	var strs []string
+	if err := json.Unmarshal(data, &strs); err == nil {
+		*s = strs
+		return nil
+	}
+	return errors.New("err json type")
+}
 
 type TlsClientConfig struct {
 	Enabled    bool   `json:"enabled"`
@@ -51,13 +68,13 @@ type RuleSetConfig struct {
 	Format string `json:"format"`
 }
 type RuleConfig struct {
-	Domain        []string `json:"domain"`
-	DomainKeyword []string `json:"domain_keyword"`
-	DomainSuffix  []string `json:"domain_suffix"`
-	DomainRegex   []string `json:"domain_regex"`
-	IpCidr        []string `json:"ip_cidr"`
-	RuleSet       []string `json:"rule_set"`
-	Outbound      string   `json:"outbound"`
+	Domain        Strings `json:"domain"`
+	DomainKeyword Strings `json:"domain_keyword"`
+	DomainSuffix  Strings `json:"domain_suffix"`
+	DomainRegex   Strings `json:"domain_regex"`
+	IpCidr        Strings `json:"ip_cidr"`
+	RuleSet       Strings `json:"rule_set"`
+	Outbound      string  `json:"outbound"`
 }
 type RouterConfig struct {
 	Final    string          `json:"final"`
@@ -75,12 +92,12 @@ type DnsServerConfig struct {
 	Insecure   bool   `json:"insecure"`
 }
 type DnsRuleConfig struct {
-	Domain        []string `json:"domain"`
-	DomainKeyword []string `json:"domain_keyword"`
-	DomainSuffix  []string `json:"domain_suffix"`
-	DomainRegex   []string `json:"domain_regex"`
-	RuleSet       []string `json:"rule_set"`
-	Server        string   `json:"server"`
+	Domain        Strings `json:"domain"`
+	DomainKeyword Strings `json:"domain_keyword"`
+	DomainSuffix  Strings `json:"domain_suffix"`
+	DomainRegex   Strings `json:"domain_regex"`
+	RuleSet       Strings `json:"rule_set"`
+	Server        string  `json:"server"`
 }
 type DnsConfig struct {
 	Listen     string            `json:"listen"`

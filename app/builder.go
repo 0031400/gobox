@@ -67,36 +67,46 @@ func (b *Builder) BuildDnsCenter() (*dns.DnsCenter, error) {
 }
 
 type RuleSetItem struct {
-	Domain        []string `json:"domain"`
-	DomainKeyword []string `json:"domain_keyword"`
-	DomainSuffix  []string `json:"domain_suffix"`
-	DomainRegex   []string `json:"domain_regex"`
-	IpCidr        []string `json:"ip_cidr"`
+	Domain        config.Strings `json:"domain"`
+	DomainKeyword config.Strings `json:"domain_keyword"`
+	DomainSuffix  config.Strings `json:"domain_suffix"`
+	DomainRegex   config.Strings `json:"domain_regex"`
+	IpCidr        config.Strings `json:"ip_cidr"`
 }
 type RuleSetObject struct {
-	rules []RuleSetItem
+	Rules []RuleSetItem `json:"rules"`
 }
 
+func (b *Builder) LoadFileRuleSet(item config.RuleSetConfig) error {
+	var ruleSet RuleSetObject
+	file, err := os.Open(item.Path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	err = json.NewDecoder(file).Decode(&ruleSet)
+	if err != nil {
+		return err
+	}
+	var routeRules []router.RouteRule
+	for _, value := range ruleSet.Rules {
+		a, err := router.NewRouteRule(value.Domain, value.DomainSuffix, value.DomainKeyword, value.DomainRegex, []router.RouteRule{}, value.IpCidr, "")
+		if err != nil {
+			return err
+		}
+		routeRules = append(routeRules, *a)
+	}
+	b.ruleSets[item.Tag] = routeRules
+	return nil
+}
 func (b *Builder) LoadRuleSet() error {
 	for _, item := range b.config.Router.RuleSets {
 		if item.Type == "local" {
 			if item.Format == "source" {
-				var ruleSet RuleSetObject
-				file, err := os.Open(item.Path)
+				err := b.LoadFileRuleSet(item)
 				if err != nil {
 					return err
 				}
-				defer file.Close()
-				err = json.NewDecoder(file).Decode(&ruleSet)
-				var routeRules []router.RouteRule
-				for _, value := range ruleSet.rules {
-					a, err := router.NewRouteRule(value.Domain, value.DomainSuffix, value.DomainKeyword, value.DomainRegex, []router.RouteRule{}, value.IpCidr, "")
-					if err != nil {
-						return err
-					}
-					routeRules = append(routeRules, *a)
-				}
-				b.ruleSets[item.Tag] = routeRules
 			} else {
 				return errors.New("unsupport rule set format")
 			}
@@ -179,7 +189,7 @@ func (b *Builder) BuildOutbounds() (map[string]outbounds.Outbound, error) {
 			}
 			items[item.Tag] = outbounds.NewVlessOutbound(uuid, transport)
 		case "direct":
-
+			items[item.Tag] = outbounds.NewDirectOutbound()
 		default:
 			return nil, errors.New("unsupport inbound type")
 		}
