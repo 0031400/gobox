@@ -15,13 +15,13 @@ type WsTransport struct {
 	Addr common.TargetAddr
 	Host string
 	Path string
-	Tls  tlsUtil.TlsConfig
+	Tls  tlsUtil.TlsClientConfig
 }
 
 func NewWsTransport(addr common.TargetAddr,
 	host string,
 	path string,
-	tls tlsUtil.TlsConfig) *WsTransport {
+	tls tlsUtil.TlsClientConfig) *WsTransport {
 	return &WsTransport{Addr: addr, Host: host, Path: path, Tls: tls}
 }
 func (w *WsTransport) Connect() (connections.Connection, error) {

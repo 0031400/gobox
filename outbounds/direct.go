@@ -12,7 +12,7 @@ func NewDirectOutbound() *DirectOutbound {
 	return &DirectOutbound{}
 }
 func (v *DirectOutbound) Connect(session OutSession) (connections.Connection, error) {
-	transport := transports.NewTcpTransport(session.Target, tlsUtil.TlsConfig{Enabled: false})
+	transport := transports.NewTcpTransport(session.Target, tlsUtil.TlsClientConfig{Enabled: false})
 	conn, err := transport.Connect()
 	if err != nil {
 		return nil, err

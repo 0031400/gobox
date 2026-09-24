@@ -10,11 +10,11 @@ import (
 
 type TcpTransport struct {
 	Addr common.TargetAddr
-	Tls  tlsUtil.TlsConfig
+	Tls  tlsUtil.TlsClientConfig
 }
 
 func NewTcpTransport(addr common.TargetAddr,
-	tls tlsUtil.TlsConfig) *TcpTransport {
+	tls tlsUtil.TlsClientConfig) *TcpTransport {
 	return &TcpTransport{Addr: addr, Tls: tls}
 }
 func (w *TcpTransport) Connect() (connections.Connection, error) {
