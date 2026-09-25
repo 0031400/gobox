@@ -19,7 +19,7 @@ func (u *UdpServer) Relay(data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	buf := make([]byte, 1024)
+	buf := make([]byte, 4096)
 	n, err := conn.Read(buf)
 	if err != nil {
 		return nil, err

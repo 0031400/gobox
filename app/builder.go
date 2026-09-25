@@ -57,7 +57,7 @@ func (b *Builder) BuildDnsCenter() (*dns.DnsCenter, error) {
 				ruleSets = append(ruleSets, *dns.NewSubDnsRule(value.Domain, value.DomainSuffix, value.DomainKeyword, value.DomainRegex))
 			}
 		}
-		rules = append(rules, *dns.NewDnsRule(cfg.Domain, cfg.DomainSuffix, cfg.DomainKeyword, cfg.DomainRegex, []dns.DnsRule{}, cfg.Server))
+		rules = append(rules, *dns.NewDnsRule(cfg.Domain, cfg.DomainSuffix, cfg.DomainKeyword, cfg.DomainRegex, ruleSets, cfg.Server))
 	}
 	var listenAddr *net.UDPAddr
 	if b.config.Dns.Listen != "" {
@@ -139,11 +139,12 @@ func (b *Builder) BuildRouter() (*router.Router, error) {
 func (b *Builder) buildListener(cfg config.InboundConfig) (listeners.Listener, error) {
 	addr := common.ListenAddr{Ip: net.ParseIP(cfg.Listen), Port: cfg.ListenPort}
 	tlsCfg := tlsUtil.TlsServerConfig{Enabled: cfg.TLs.Enabled, CertificatePath: cfg.TLs.CertificatePath, KeyPath: cfg.TLs.KeyPath}
-	if cfg.Transport.Type == "tcp" || cfg.Transport.Type == "" {
+	switch cfg.Transport.Type {
+	case "tcp", "":
 		return listeners.NewTcpListener(addr, tlsCfg), nil
-	} else if cfg.Transport.Type == "ws" {
+	case "ws":
 		return listeners.NewWsListener(addr, cfg.Transport.Path, tlsCfg), nil
-	} else {
+	default:
 		return nil, errors.New("unsupport listener type")
 	}
 

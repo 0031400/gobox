@@ -57,7 +57,7 @@ func (d *DnsCenter) Start() {
 		}
 		defer conn.Close()
 		log.Printf("[dns] listen on %s\n", d.listenAddr)
-		buf := make([]byte, 1024)
+		buf := make([]byte, 4096)
 		for {
 			n, clientAddr, err := conn.ReadFromUDP(buf)
 			log.Printf("[dns] connected: %s\n", clientAddr)

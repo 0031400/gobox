@@ -26,6 +26,7 @@ func NewDnsRule(domain []string, domainSuffix []string, domainKeyword []string, 
 	return &DnsRule{domain: domain, domainSuffix: domainSuffix, domainKeyword: domainKeyword, domainRegex: res, ruleSet: ruleSet, Server: server}
 }
 func (d *DnsRule) Match(domain string) bool {
+	domain = strings.TrimSuffix(domain, ".")
 	if slices.Contains(d.domain, domain) {
 		return true
 	}
